@@ -59,6 +59,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
     private EventChannel eventChannel;
     private MethodChannel methodChannel;
     private EventChannel.EventSink events;
+    private Intent tsIntent;
 
     public SimpleS3Plugin() {
 
@@ -81,7 +82,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
         eventChannel = new EventChannel(messenger, EVENTS);
         eventChannel.setStreamHandler(this);
         methodChannel.setMethodCallHandler(this);
-
+        tsIntent = new Intent(mContext, TransferService.class);
         Log.d(TAG, "whenAttachedToEngine");
     }
 
@@ -141,11 +142,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
                     .s3Client(amazonS3Client)
                     .build();
         } catch (Exception e) {
-            try {
-                parentResult.success(false);
-            } catch (Exception e1) {
-                Log.d(TAG, e1.getMessage());
-            }
+            sendResult(false, null);
             Log.e(TAG, "onMethodCall: exception: " + e.getMessage());
         }
 
@@ -219,20 +216,10 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
             };
 
             thread.start();
-            try {
-                parentResult.success(true);
-            } catch (Exception e) {
-                Log.d(TAG, e.getMessage());
-            }
-
+            sendResult(true, null);
 
         } catch (Exception e) {
-            try {
-                parentResult.success(false);
-            } catch (Exception e1) {
-                Log.d(TAG, e1.getMessage());
-            }
-
+            sendResult(false, null);
             Log.e(TAG, "onMethodCall: exception: " + e.getMessage());
         }
     }
@@ -254,25 +241,62 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
         }
     }
 
+    private void startTransferService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            final String channelId = "19910";
+            String name = "UPLOAD_RECIPE";
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, tsIntent, 0);
+
+            // Notification manager to listen to a channel
+            NotificationChannel channel = new NotificationChannel(channelId, name, importance);
+            NotificationManager notificationManager = mContext.getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+
+            Notification notification = new NotificationCompat.Builder(mContext, channelId)
+                    .setContentTitle("Uploading files")
+                    .setContentText("Please wait...! Uploading recipe files to sortizy.")
+                    .setContentIntent(pendingIntent)
+                    .setPriority(NotificationCompat.PRIORITY_MIN)
+                    .setSmallIcon(R.drawable.ic_notification_logo)
+                    .setAutoCancel(true)
+                    .setOnlyAlertOnce(true)
+                    .setOngoing(false)
+                    .setSilent(true)
+                    .build();
+
+            tsIntent.putExtra(TransferService.INTENT_KEY_NOTIFICATION, notification);
+            tsIntent.putExtra(TransferService.INTENT_KEY_NOTIFICATION_ID, 15);
+            tsIntent.putExtra(TransferService.INTENT_KEY_REMOVE_NOTIFICATION, true);
+
+            // Foreground service required starting from Android Oreo
+            mContext.startForegroundService(tsIntent);
+        } else {
+            mContext.startService(tsIntent);
+        }
+    }
+
+    private void sendResult(Boolean isSuccess, Integer id) {
+        try {
+            if (id != null) transferUtility1.cancel(id);
+            mContext.stopService(tsIntent);
+            parentResult.success(isSuccess);
+        } catch (Exception e) {
+            Log.d(TAG, e.getMessage());
+        }
+    }
+
     class Progress implements ProgressListener {
         @Override
         public void progressChanged(ProgressEvent progressEvent) {
             switch (progressEvent.getEventCode()) {
 
                 case COMPLETED_EVENT_CODE:
-                    try {
-                        parentResult.success(true);
-                    } catch (Exception e) {
-                        Log.d(TAG, e.getMessage());
-                    }
+                    sendResult(true, null);
                     break;
                 case FAILED_EVENT_CODE:
                 default:
-                    try {
-                        parentResult.success(false);
-                    } catch (Exception e) {
-                        Log.d(TAG, e.getMessage());
-                    }
+                    sendResult(false, null);
 
             }
         }
@@ -288,12 +312,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
 
                 case COMPLETED:
                     Log.d(TAG, "onStateChanged: \"COMPLETED, ");
-                    try {
-                        transferUtility1.cancel(id);
-                        parentResult.success(true);
-                    } catch (Exception e) {
-                        Log.d(TAG, e.getMessage());
-                    }
+                    sendResult(true, id);
                     break;
                 case WAITING:
                     Log.d(TAG, "onStateChanged: \"WAITING, ");
@@ -301,12 +320,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
                 case FAILED:
                     invalidateEventSink();
                     Log.d(TAG, "onStateChanged: \"FAILED, ");
-                    try {
-                        transferUtility1.cancel(id);
-                        parentResult.success(false);
-                    } catch (Exception e) {
-                        Log.d(TAG, e.getMessage());
-                    }
+                    sendResult(false, id);
                     break;
                 default:
                     Log.d(TAG, "onStateChanged: \"SOMETHING ELSE, ");
@@ -330,42 +344,6 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
         public void onError(int id, Exception ex) {
             Log.e(TAG, "onError: " + ex);
             invalidateEventSink();
-        }
-    }
-
-    private void startTransferService() {
-        Intent tsIntent = new Intent(mContext, TransferService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            final String channelId = "19910";
-            String name = "UPLOAD_RECIPE";
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
-            PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, tsIntent, 0);
-
-            // Notification manager to listen to a channel
-            NotificationChannel channel = new NotificationChannel(channelId, name, importance);
-            NotificationManager notificationManager = mContext.getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
-
-            Notification notification = new NotificationCompat.Builder(mContext, channelId)
-                    .setContentTitle("Uploading files")
-                    .setContentText(" Please wait...\nUploading recipe to sortizy.")
-                    .setContentIntent(pendingIntent)
-                    .setPriority(NotificationCompat.PRIORITY_MIN)
-                    .setSmallIcon(R.drawable.ic_notification_logo)
-                    .setAutoCancel(true)
-                    .setOnlyAlertOnce(true)
-                    .setOngoing(false)
-                    .setSilent(true)
-                    .build();
-
-            tsIntent.putExtra(TransferService.INTENT_KEY_NOTIFICATION, notification);
-            tsIntent.putExtra(TransferService.INTENT_KEY_NOTIFICATION_ID, 15);
-            tsIntent.putExtra(TransferService.INTENT_KEY_REMOVE_NOTIFICATION, true);
-
-            // Foreground service required starting from Android Oreo
-            mContext.startForegroundService(tsIntent);
-        } else {
-            mContext.startService(tsIntent);
         }
     }
 }
