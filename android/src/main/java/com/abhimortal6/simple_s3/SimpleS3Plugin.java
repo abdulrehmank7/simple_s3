@@ -9,7 +9,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.CognitoCredentialsProvider;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.mobile.client.AWSMobileClient;
@@ -115,9 +115,6 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
         String contentType = call.argument("contentType");
         int accessControl = call.argument("accessControl");
 
-        final String AWS_SECRET_KEY = poolID.split("-")[0];
-        final String AWS_ACCESS_KEY = poolID.split("-")[1];
-
         System.out.println(call.arguments);
 
         try {
@@ -126,9 +123,8 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
             Regions parsedSubRegion = subRegion.length() != 0 ? Regions.fromName(subRegion) : parsedRegion;
 
             TransferNetworkLossHandler.getInstance(mContext.getApplicationContext());
-
-            BasicAWSCredentials awsCreds = new BasicAWSCredentials(AWS_SECRET_KEY, AWS_ACCESS_KEY);
-            final AmazonS3 amazonS3Client = new AmazonS3Client(awsCreds, com.amazonaws.regions.Region.getRegion(parsedSubRegion));
+            CognitoCredentialsProvider credentialsProvider = new CognitoCredentialsProvider(poolID, parsedRegion, clientConfiguration);
+            final AmazonS3 amazonS3Client = new AmazonS3Client(credentialsProvider, com.amazonaws.regions.Region.getRegion(parsedSubRegion));
 
             transferUtility1 = TransferUtility.builder().context(mContext).awsConfiguration(AWSMobileClient.getInstance().getConfiguration()).s3Client(amazonS3Client).build();
         } catch (Exception e) {
@@ -192,9 +188,6 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
         String region = call.argument("region");
         String subRegion = call.argument("subRegion");
 
-        final String AWS_SECRET_KEY = poolID.split("-")[0];
-        final String AWS_ACCESS_KEY = poolID.split("-")[1];
-
         try {
 
             Regions parsedRegion = Regions.fromName(region);
@@ -202,8 +195,8 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
 
             TransferNetworkLossHandler.getInstance(mContext.getApplicationContext());
 
-            BasicAWSCredentials awsCreds = new BasicAWSCredentials(AWS_SECRET_KEY, AWS_ACCESS_KEY);
-            final AmazonS3 amazonS3Client = new AmazonS3Client(awsCreds, com.amazonaws.regions.Region.getRegion(parsedSubRegion));
+            CognitoCredentialsProvider credentialsProvider = new CognitoCredentialsProvider(poolID, parsedRegion, clientConfiguration);
+            final AmazonS3 amazonS3Client = new AmazonS3Client(credentialsProvider, com.amazonaws.regions.Region.getRegion(parsedSubRegion));
 
             final DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(bucketName, filePath).withGeneralProgressListener(new Progress());
 
