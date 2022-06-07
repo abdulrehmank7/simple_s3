@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:simple_s3/simple_s3.dart';
-import 'package:simple_s3_example/Credentials.dart';
+import 'package:simple_s3_example/Credentials_example.dart';
 
 void main() => runApp(MyApp());
 

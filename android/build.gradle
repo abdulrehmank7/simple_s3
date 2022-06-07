@@ -43,11 +43,6 @@ android {
 dependencies {
     implementation 'com.amazonaws:aws-android-sdk-mobile-client:2.44.0'
     implementation 'com.amazonaws:aws-android-sdk-s3:2.44.0'
-    implementation 'com.amazonaws:aws-android-sdk-cognitoauth:2.44.0'
-    implementation 'com.amazonaws:aws-android-sdk-auth-userpools:2.44.0'
-    implementation 'com.amazonaws:aws-android-sdk-auth-ui:2.44.0'
-    implementation 'commons-io:commons-io:2.11.0'
-    implementation platform('com.amazonaws:aws-java-sdk-bom:1.11.1000')
-    implementation 'com.amazonaws:aws-java-sdk-s3'
-
+    implementation 'com.amazonaws:aws-android-sdk-cognito:2.16.12'
+    implementation 'commons-io:commons-io:2.11.0:'
 }

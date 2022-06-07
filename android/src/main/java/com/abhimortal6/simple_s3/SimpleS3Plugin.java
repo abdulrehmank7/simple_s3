@@ -1,12 +1,14 @@
 package com.abhimortal6.simple_s3;
 
+import static com.amazonaws.event.ProgressEvent.COMPLETED_EVENT_CODE;
+import static com.amazonaws.event.ProgressEvent.FAILED_EVENT_CODE;
+
 import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
 import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressListener;
@@ -18,7 +20,7 @@ import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -101,10 +103,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
     }
 
     private void upload(@NonNull MethodCall call, @NonNull Result result) {
-
-
         parentResult = result;
-
 
         String bucketName = call.argument("bucketName");
         String filePath = call.argument("filePath");
@@ -121,21 +120,15 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
 
         System.out.println(call.arguments);
 
-
         try {
 
             Regions parsedRegion = Regions.fromName(region);
             Regions parsedSubRegion = subRegion.length() != 0 ? Regions.fromName(subRegion) : parsedRegion;
 
-            //CognitoCredentialsProvider credentialsProvider = new CognitoCredentialsProvider(poolID, parsedRegion, clientConfiguration);
-            //AmazonS3Client amazonS3Client = new AmazonS3Client(credentialsProvider);
             TransferNetworkLossHandler.getInstance(mContext.getApplicationContext());
 
             BasicAWSCredentials awsCreds = new BasicAWSCredentials(AWS_SECRET_KEY, AWS_ACCESS_KEY);
-            final AmazonS3 amazonS3Client = AmazonS3ClientBuilder.standard()
-                    .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
-                    .build();
-            amazonS3Client.setRegion(com.amazonaws.regions.Region.getRegion(parsedSubRegion));
+            final AmazonS3 amazonS3Client = new AmazonS3Client(awsCreds, com.amazonaws.regions.Region.getRegion(parsedSubRegion));
 
             transferUtility1 = TransferUtility.builder().context(mContext).awsConfiguration(AWSMobileClient.getInstance().getConfiguration()).s3Client(amazonS3Client).build();
         } catch (Exception e) {
@@ -154,7 +147,6 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
         ObjectMetadata objectMetadata = new ObjectMetadata();
         System.out.println(fileName.substring(fileName.lastIndexOf(".") + 1));
         objectMetadata.setContentType(contentType);
-
 
         CannedAccessControlList acl;
         switch (accessControl) {
@@ -192,8 +184,6 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
 
 
     private void delete(@NonNull MethodCall call, @NonNull Result result) {
-
-
         parentResult = result;
 
         String bucketName = call.argument("bucketName");
@@ -210,19 +200,12 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
             Regions parsedRegion = Regions.fromName(region);
             Regions parsedSubRegion = subRegion.length() != 0 ? Regions.fromName(subRegion) : parsedRegion;
 
-            //CognitoCredentialsProvider credentialsProvider = new CognitoCredentialsProvider(poolID, parsedRegion, clientConfiguration);
-            //final AmazonS3Client amazonS3Client = new AmazonS3Client(credentialsProvider);
-
             TransferNetworkLossHandler.getInstance(mContext.getApplicationContext());
 
             BasicAWSCredentials awsCreds = new BasicAWSCredentials(AWS_SECRET_KEY, AWS_ACCESS_KEY);
-            final AmazonS3 amazonS3Client = AmazonS3ClientBuilder.standard()
-                    .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
-                    .build();
-            amazonS3Client.setRegion(com.amazonaws.regions.Region.getRegion(parsedSubRegion));
+            final AmazonS3 amazonS3Client = new AmazonS3Client(awsCreds, com.amazonaws.regions.Region.getRegion(parsedSubRegion));
 
             final DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(bucketName, filePath).withGeneralProgressListener(new Progress());
-
 
             Thread thread = new Thread() {
                 @Override
@@ -248,8 +231,6 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
 
             Log.e(TAG, "onMethodCall: exception: " + e.getMessage());
         }
-
-
     }
 
     @Override
@@ -272,23 +253,22 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
     class Progress implements ProgressListener {
         @Override
         public void progressChanged(ProgressEvent progressEvent) {
-            switch (progressEvent.getEventType()) {
+            switch (progressEvent.getEventCode()) {
 
-                case TRANSFER_COMPLETED_EVENT:
+                case COMPLETED_EVENT_CODE:
                     try {
                         parentResult.success(true);
                     } catch (Exception e) {
                         Log.d(TAG, e.getMessage());
                     }
                     break;
-                case TRANSFER_FAILED_EVENT:
+                case FAILED_EVENT_CODE:
+                default:
                     try {
                         parentResult.success(false);
                     } catch (Exception e) {
                         Log.d(TAG, e.getMessage());
                     }
-                    break;
-                default:
 
             }
         }
