@@ -3,7 +3,13 @@ package com.abhimortal6.simple_s3;
 import static com.amazonaws.event.ProgressEvent.COMPLETED_EVENT_CODE;
 import static com.amazonaws.event.ProgressEvent.FAILED_EVENT_CODE;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -16,6 +22,7 @@ import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferNetworkLossHandler;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferService;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
 import com.amazonaws.regions.Regions;
@@ -103,6 +110,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
     }
 
     private void upload(@NonNull MethodCall call, @NonNull Result result) {
+        startTransferService();
         parentResult = result;
 
         String bucketName = call.argument("bucketName");
@@ -125,7 +133,9 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
             TransferNetworkLossHandler.getInstance(mContext.getApplicationContext());
             CognitoCredentialsProvider credentialsProvider = new CognitoCredentialsProvider(poolID, parsedRegion, clientConfiguration);
             final AmazonS3 amazonS3Client = new AmazonS3Client(credentialsProvider, com.amazonaws.regions.Region.getRegion(parsedSubRegion));
-
+            mContext.getApplicationContext().startService(new Intent(mContext.getApplicationContext(), TransferService.class));
+            transferUtility1 = new TransferUtility(amazonS3Client,
+                    mContext.getApplicationContext());
             transferUtility1 = TransferUtility.builder().context(mContext).awsConfiguration(AWSMobileClient.getInstance().getConfiguration()).s3Client(amazonS3Client).build();
         } catch (Exception e) {
             try {
@@ -180,6 +190,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
 
 
     private void delete(@NonNull MethodCall call, @NonNull Result result) {
+        startTransferService();
         parentResult = result;
 
         String bucketName = call.argument("bucketName");
@@ -319,6 +330,38 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
         public void onError(int id, Exception ex) {
             Log.e(TAG, "onError: " + ex);
             invalidateEventSink();
+        }
+    }
+
+    private void startTransferService() {
+        Intent tsIntent = new Intent(mContext, TransferService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            final String id = "19910";
+            String name = "UPLOAD_RECIPE";
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, tsIntent, 0);
+
+            // Notification manager to listen to a channel
+            NotificationChannel channel = new NotificationChannel(id, name, importance);
+            NotificationManager notificationManager = mContext.getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+
+            // Valid notification object required
+            Notification notification = new Notification.Builder(mContext, id)
+                    .setContentTitle("Uploading files")
+                    .setContentText(" Please wait...\nUploading recipe to sortizy.")
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .build();
+
+            tsIntent.putExtra(TransferService.INTENT_KEY_NOTIFICATION, notification);
+            tsIntent.putExtra(TransferService.INTENT_KEY_NOTIFICATION_ID, 15);
+            tsIntent.putExtra(TransferService.INTENT_KEY_REMOVE_NOTIFICATION, true);
+
+            // Foreground service required starting from Android Oreo
+            mContext.startForegroundService(tsIntent);
+        } else {
+            mContext.startService(tsIntent);
         }
     }
 }
