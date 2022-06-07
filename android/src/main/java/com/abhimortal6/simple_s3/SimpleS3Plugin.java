@@ -13,6 +13,7 @@ import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.CognitoCredentialsProvider;
@@ -133,10 +134,12 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
             TransferNetworkLossHandler.getInstance(mContext.getApplicationContext());
             CognitoCredentialsProvider credentialsProvider = new CognitoCredentialsProvider(poolID, parsedRegion, clientConfiguration);
             final AmazonS3 amazonS3Client = new AmazonS3Client(credentialsProvider, com.amazonaws.regions.Region.getRegion(parsedSubRegion));
-            mContext.getApplicationContext().startService(new Intent(mContext.getApplicationContext(), TransferService.class));
-            transferUtility1 = new TransferUtility(amazonS3Client,
-                    mContext.getApplicationContext());
-            transferUtility1 = TransferUtility.builder().context(mContext).awsConfiguration(AWSMobileClient.getInstance().getConfiguration()).s3Client(amazonS3Client).build();
+            transferUtility1 = TransferUtility
+                    .builder()
+                    .context(mContext)
+                    .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
+                    .s3Client(amazonS3Client)
+                    .build();
         } catch (Exception e) {
             try {
                 parentResult.success(false);
@@ -177,13 +180,10 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
             case 2:
             default:
                 acl = CannedAccessControlList.PublicRead;
-
-
         }
 
         TransferObserver transferObserver1 = transferUtility1
                 .upload(bucketName, awsPath, new File(filePath), objectMetadata, acl);
-
 
         transferObserver1.setTransferListener(new Transfer());
     }
@@ -336,22 +336,26 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
     private void startTransferService() {
         Intent tsIntent = new Intent(mContext, TransferService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            final String id = "19910";
+            final String channelId = "19910";
             String name = "UPLOAD_RECIPE";
             int importance = NotificationManager.IMPORTANCE_DEFAULT;
             PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, tsIntent, 0);
 
             // Notification manager to listen to a channel
-            NotificationChannel channel = new NotificationChannel(id, name, importance);
+            NotificationChannel channel = new NotificationChannel(channelId, name, importance);
             NotificationManager notificationManager = mContext.getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
 
-            // Valid notification object required
-            Notification notification = new Notification.Builder(mContext, id)
+            Notification notification = new NotificationCompat.Builder(mContext, channelId)
                     .setContentTitle("Uploading files")
                     .setContentText(" Please wait...\nUploading recipe to sortizy.")
                     .setContentIntent(pendingIntent)
+                    .setPriority(NotificationCompat.PRIORITY_MIN)
+                    .setSmallIcon(R.drawable.ic_notification_logo)
                     .setAutoCancel(true)
+                    .setOnlyAlertOnce(true)
+                    .setOngoing(false)
+                    .setSilent(true)
                     .build();
 
             tsIntent.putExtra(TransferService.INTENT_KEY_NOTIFICATION, notification);
