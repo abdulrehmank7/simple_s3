@@ -8,7 +8,8 @@ import 'package:mime_type/mime_type.dart';
 class SimpleS3 {
   static const MethodChannel _methodChannel = const MethodChannel('simple_s3');
 
-  static const EventChannel _eventChannel = const EventChannel("simple_s3_events");
+  static const EventChannel _eventChannel =
+      const EventChannel("simple_s3_events");
 
   ///Provide stream of dynamic type. This stream contains upload percentage.
   Stream get getUploadPercentage => _eventChannel.receiveBroadcastStream();
@@ -45,7 +46,8 @@ class SimpleS3 {
         if (timeStampLocation == TimestampLocation.prefix) {
           fileName = '$timestamp\_$originalFileName';
         } else {
-          fileName = '${originalFileName.split(".").first}\_$timestamp\.${originalFileName.split(".").last}';
+          fileName =
+              '${originalFileName.split(".").first}\_$timestamp\.${originalFileName.split(".").last}';
         }
       } else
         fileName = originalFileName;
@@ -70,14 +72,17 @@ class SimpleS3 {
     args.putIfAbsent("s3FolderPath", () => s3FolderPath);
     args.putIfAbsent("debugLog", () => debugLog);
     args.putIfAbsent("contentType", () => contentType);
-    args.putIfAbsent("subRegion", () => subRegion != null ? subRegion.region : "");
+    args.putIfAbsent(
+        "subRegion", () => subRegion != null ? subRegion.region : "");
     args.putIfAbsent("accessControl", () => accessControl.index);
 
     bool methodResult = await _methodChannel.invokeMethod('upload', args);
 
     if (methodResult) {
       String _region = subRegion != null ? subRegion.region : region.region;
-      String _path = s3FolderPath != "" ? bucketName + "/" + s3FolderPath + "/" + fileName : bucketName + "/" + fileName;
+      String _path = s3FolderPath != ""
+          ? bucketName + "/" + s3FolderPath + "/" + fileName
+          : bucketName + "/" + fileName;
 
       result = "https://s3-$_region.amazonaws.com/$_path";
 
@@ -127,7 +132,8 @@ class SimpleS3 {
     args.putIfAbsent("bucketName", () => bucketName);
     args.putIfAbsent("filePath", () => filePath);
     args.putIfAbsent("debugLog", () => debugLog);
-    args.putIfAbsent("subRegion", () => subRegion != null ? subRegion.region : "");
+    args.putIfAbsent(
+        "subRegion", () => subRegion != null ? subRegion.region : "");
 
     bool methodResult = await _methodChannel.invokeMethod('delete', args);
 
