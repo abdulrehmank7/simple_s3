@@ -246,7 +246,7 @@ public class SimpleS3Plugin implements FlutterPlugin, MethodCallHandler, EventCh
             final String channelId = "19910";
             String name = "UPLOAD_RECIPE";
             int importance = NotificationManager.IMPORTANCE_DEFAULT;
-            PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, tsIntent, 0);
+            PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, tsIntent, PendingIntent.FLAG_IMMUTABLE);
 
             // Notification manager to listen to a channel
             NotificationChannel channel = new NotificationChannel(channelId, name, importance);
